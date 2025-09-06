@@ -1,0 +1,123 @@
+
+// Prisma client generator
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+// Database connection configuration
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+
+// User model: stores user profile and authentication info
+model User {
+  id            String    @id @default(uuid())
+  clerkUserId   String    @unique // Clerk user id
+  email         String    @unique
+  name          String?  // Optional user name
+  imageUrl      String?  // Optional profile image
+  transactions  Transaction[] // User's transactions
+  accounts      Account[]     // User's accounts
+  budgets       Budget[]      // User's budgets
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("users")
+}
+
+
+// Account model: represents a user's bank or cash account
+model Account {
+  id           String        @id @default(uuid())
+  name         String        // Account name
+  type         AccountType   // Account type (CURRENT/SAVINGS)
+  balance      Decimal       @default(0) // Initial balance
+  isDefault    Boolean       @default(false) // Is this the default account?
+  userId       String        // Linked user
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[] // Transactions for this account
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+
+// Transaction model: records income/expense events
+model Transaction {
+  id                String            @id @default(uuid())
+  type              TransactionType   // INCOME or EXPENSE
+  amount            Decimal           // Transaction amount
+  description       String?           // Optional description
+  date              DateTime          // Transaction date
+  category          String            // Category name
+  receiptUrl        String?           // Optional receipt image URL
+  isRecurring       Boolean           @default(false) // Is this recurring?
+  isSplitExpense    Boolean           @default(false) // Is this a split expense?
+  recurringInterval RecurringInterval? // Recurrence interval
+  nextRecurringDate DateTime?         // Next scheduled recurrence
+  lastProcessed     DateTime?         // Last processed date for recurring
+  status            TransactionStatus @default(COMPLETED) // Status
+  userId            String            // Linked user
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId         String            // Linked account
+  account           Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([userId])
+  @@index([accountId])
+  @@map("transactions")
+}
+
+
+
+// Budget model: stores user's budget and alert info
+model Budget {
+  id            String       @id @default(uuid())
+  amount        Decimal      // Budget amount
+  lastAlertSent DateTime?    // Track when the last alert was sent
+  userId        String       @unique // Linked user
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([userId])
+  @@map("budgets")
+}
+
+
+// Transaction type: income or expense
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+
+// Account type: current or savings
+enum AccountType {
+  CURRENT
+  SAVINGS
+}
+
+
+// Transaction status: pending, completed, or failed
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+
+// Recurring interval for transactions
+enum RecurringInterval {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
